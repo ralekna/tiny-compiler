@@ -1,7 +1,5 @@
 var source = '(mult 2 30)';
 
-var EOF = '\0';
-
 // can pass as reference
 function Source(source) {
   this.valueOf = this.toString = function() {
@@ -9,46 +7,94 @@ function Source(source) {
   };
 }
 
-function Char(char, lineIndex, colIndex, sourceIndex, source) {
-  this.cargo          = char;
-  this.sourceIndex    = sourceIndex;
-  this.lineIndex      = lineIndex;
-  this.colIndex       = colIndex;
-  this.source         = source;
-}
-Char.prototype.toString = function() {
+var Char = (function() {
+
   var cargoToString = {
     " " : "   space",
     "\n": "   newline",
-    "\t": "   tab",
-    "\0": "   eof"
+    "\t": "   tab"
   };
 
-  var cargo = this.cargo;
-  if (cargoToString[cargo]) {
-    cargo = cargoToString[cargo];
-  } else {
-    cargo = '\"' + cargo + '\"';
+  function Char(char, lineIndex, colIndex, sourceIndex, source) {
+    this.cargo          = char;
+    this.sourceIndex    = sourceIndex;
+    this.lineIndex      = lineIndex;
+    this.colIndex       = colIndex;
+    this.source         = source;
   }
-  return cargo + ' line:' + this.lineIndex + 'col:' + this.colIndex;
-};
 
-function scan(source) {
-  var columnIndex = -1;
-  var lineIndex = 0;
+  Char.prototype.isWhiteSpace = function () {
+    return !!cargoToString[this.cargo];
+  };
 
-  var retVal = Array.prototype.map.apply(source, function(char, sourceIndex) {
-    if (char === '\n') {
-      columnIndex = -1;
-      lineIndex++;
+  Char.prototype.toDetailedString = function() {
+
+    var cargo = this.cargo;
+    if (cargoToString[cargo]) {
+      cargo = cargoToString[cargo];
+    } else {
+      cargo = '\"' + cargo + '\"';
     }
-    columnIndex++;
+    return cargo + ' line:' + this.lineIndex + 'col:' + this.colIndex;
+  };
 
-    return new Char(char, lineIndex, columnIndex, sourceIndex, source);
-  });
-  retVal.push(new Char(EOF, lineIndex, columnIndex, source.length - 1, source));
-  return retVal;
-}
+  Char.prototype.toString = Char.prototype.valueOf = function() {
+    return this.cargo;
+  };
+
+  return Char;
+})();
+
+var Scanner = (function () {
+
+  function scan(source) {
+    var columnIndex = -1;
+    var lineIndex = 0;
+
+    return Array.prototype.map.call(source, function(char, sourceIndex) {
+      if (char === '\n') {
+        columnIndex = -1;
+        lineIndex++;
+      }
+      columnIndex++;
+      return new Char(char, lineIndex, columnIndex, sourceIndex, source);
+    });
+  }
+
+  function Scanner(sourceText) {
+    this.position = 0;
+    this.buffer = scan(sourceText);
+  }
+
+  Scanner.prototype.getNext = function() {
+    return this.buffer[this.position++];
+  };
+  Scanner.prototype.getCurrect = function () {
+    return this.buffer[this.position];
+  };
+  Scanner.prototype.peek = function() {
+    return this.buffer[this.position + 1];
+  };
+
+  Scanner.prototype.isEof = function() {
+    return this.peek() == null;
+  };
+
+  return Scanner;
+})();
+
+var Tokenizer = (function () {
+
+  function Tokenizer(scanner) {
+
+  }
+
+  Tokenizer.prototype.getNext = function () {
+
+  };
+
+  return Tokenizer;
+})();
 
 function tokenize(source) {
 
@@ -60,7 +106,7 @@ var head = Function.prototype.call.bind(Array.prototype.slice, 0, 1);
 function readNumber(source) {
   let first = source[0];
   if (/\d/.test(first)) {
-    return readNumber(tail(source), position++);
+    return readNumber(tail(source));
   } else {
     return;
   }
