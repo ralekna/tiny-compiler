@@ -63,13 +63,13 @@ var Scanner = (function () {
 
   function Scanner(sourceText) {
     this.position = 0;
-    this.buffer = scan(sourceText);
+    this.buffer = scan(sourceText.toString());
   }
 
   Scanner.prototype.getNext = function() {
     return this.buffer[this.position++];
   };
-  Scanner.prototype.getCurrect = function () {
+  Scanner.prototype.getCurrent = function () {
     return this.buffer[this.position];
   };
   Scanner.prototype.peek = function() {
@@ -83,104 +83,132 @@ var Scanner = (function () {
   return Scanner;
 })();
 
-var Tokenizer = (function () {
+var Token = (function() {
 
-  function Tokenizer(scanner) {
+  Token.NUMBER = 'number';
+  Token.PAREN = 'paren';
+  Token.NAME = 'name';
 
+  function charsToString(chars) {
+    return chars.reduce(function(prev, char) {
+      return prev + char.cargo;
+    }, '');
   }
 
-  Tokenizer.prototype.getNext = function () {
+  function Token(type, value) {
+    this.type = type;
+    this.value = value;
+  }
 
+  Token.prototype.toString = function() {
+    return JSON.stringify({
+      type: this.type,
+      value: charsToString(this.value)
+    });
+  };
+
+  Token.prototype.getValueText = function() {
+    return charsToString(this.value);
+  };
+
+  return Token;
+
+})();
+
+var Tokenizer = (function () {
+
+  function isNumber(char) {
+    return /\d/.test(char.cargo);
+  }
+
+  function isLetter(char) {
+    return /[a-z]/i.test(char.cargo);
+  }
+
+  function isAlphaNumeric(char) {
+    return /[a-z0-9]/i.test(char.cargo);
+  }
+
+  function isParen(char) {
+    return ~"()".indexOf(char.cargo);
+  }
+
+  function isWhiteSpace(char) {
+    return char.isWhiteSpace();
+  }
+
+
+  function Tokenizer(scanner) {
+    this.scanner = scanner;
+    this.current = null;
+  }
+
+  Tokenizer.prototype.readWhile = function(predicate) {
+    var retVal = [];
+    while(!this.scanner.isEof() && predicate(this.scanner.peek())) {
+      retVal.push(this.scanner.getNext());
+    }
+    return retVal;
+  };
+
+  Tokenizer.prototype.readNext = function() {
+    this.readWhile(isWhiteSpace);
+    var char = this.scanner.peek();
+    if (!char) { // EOF
+      return null;
+    }
+    if (isParen(char)) {
+      return {type: Token.PAREN, value: [this.scanner.getNext()]}
+    }
+
+    if (isLetter(char)) {
+      return this.readName();
+    }
+
+    if (isNumber(char)) {
+      return this.readNumber();
+    }
+
+    throw new Error('Can\'t read char: ' + char.toString());
+  };
+
+  Tokenizer.prototype.readName = function() {
+    var value = this.readWhile(isAlphaNumeric);
+    return {type: Token.NAME, value: value};
+  };
+
+  Tokenizer.prototype.readNumber = function() {
+    var value = this.readWhile(isNumber);
+    return {type: Token.NUMBER, value: value};
+  };
+
+  Tokenizer.prototype.peek = function() {
+    return this.current || (this.current = this.readNext());
+  };
+
+  Tokenizer.prototype.getNext = function () {
+    var token = this.current;
+    this.current = null;
+    return token || this.readNext();
+  };
+
+  Tokenizer.prototype.isEof = function() {
+    return !this.peek();
   };
 
   return Tokenizer;
 })();
 
-function tokenize(source) {
-
-}
-
-var tail = Function.prototype.call.bind(Array.prototype.slice, 1);
-var head = Function.prototype.call.bind(Array.prototype.slice, 0, 1);
-
-function readNumber(source) {
-  let first = source[0];
-  if (/\d/.test(first)) {
-    return readNumber(tail(source));
-  } else {
-    return;
-  }
-}
-
-function tokenizer(source) {
-
-  var position = 0;
+function tokenize(tokenizer) {
+  // console.log(tokenizer.getNext());
   var tokens = [];
-
-  while(position < source.length) {
-
-    var char = source[position];
-
-      if (char.match(/\s/)) {
-        readSpace();
-        position++;
-        continue;
-      }
-
-      if (char.match(/\d/)) {
-        tokens.push({type: 'number', value: readNumber()});
-        position++;
-        continue;
-      }
-
-      if (char === '(') {
-        tokens.push({type: 'lparen', value: '('});
-        position++;
-        continue;
-      }
-
-      if (char === ')') {
-        tokens.push({type: 'rparen', value: ')'});
-        position++;
-        continue;
-      }
-
-      if (char.match(/[a-z]/i)) {
-        tokens.push({type: 'name', value: readName()});
-        continue;
-      }
-
-      throw new Error('unknown char ' + char + ' at position ' + position);
-
+  while(!tokenizer.isEof()) {
+    var token = tokenizer.getNext();
+    console.log(token)
+    tokens.push(token);
   }
 
-  function readNumber() {
-    let token = '';
-    do {
-      token += source[position];
-      position++;
-    } while (source[position].match(/\d/));
-    return token;
-  }
-
-  function readName() {
-    let token = '';
-    do {
-      token += source[position];
-      position++;
-    } while (source[position].match(/[a-z]/i));
-    return token;
-  }
-
-  function readSpace() {
-    do {
-      position++
-    } while (source[position].match(/\s/));
-  }
-
-
-  return tokens;
+  console.log(tokens);
 }
 
-
-console.log(tokenizer(source));
+tokenize(new Tokenizer(new Scanner(new Source(source))));
