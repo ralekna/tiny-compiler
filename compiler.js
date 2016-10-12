@@ -1,4 +1,4 @@
-var source = '(mult 2 30)';
+var source = '(mult 2 (mult 3 4))';
 
 // can pass as reference
 function Source(source) {
@@ -73,11 +73,11 @@ var Scanner = (function () {
     return this.buffer[this.position];
   };
   Scanner.prototype.peek = function() {
-    return this.buffer[this.position + 1];
+    return this.buffer[this.position];
   };
 
   Scanner.prototype.isEof = function() {
-    return this.peek() == null;
+    return !this.peek();
   };
 
   return Scanner;
@@ -100,10 +100,10 @@ var Token = (function() {
     this.value = value;
   }
 
-  Token.prototype.toString = function() {
+  Token.prototype.toString = Token.prototype.valueOf = function() {
     return JSON.stringify({
       type: this.type,
-      value: charsToString(this.value)
+      value: this.getValueText()
     });
   };
 
@@ -130,7 +130,7 @@ var Tokenizer = (function () {
   }
 
   function isParen(char) {
-    return ~"()".indexOf(char.cargo);
+    return /[()]/.test(char.cargo);
   }
 
   function isWhiteSpace(char) {
@@ -146,7 +146,8 @@ var Tokenizer = (function () {
   Tokenizer.prototype.readWhile = function(predicate) {
     var retVal = [];
     while(!this.scanner.isEof() && predicate(this.scanner.peek())) {
-      retVal.push(this.scanner.getNext());
+      var char = this.scanner.getNext();
+      retVal.push(char);
     }
     return retVal;
   };
@@ -157,8 +158,9 @@ var Tokenizer = (function () {
     if (!char) { // EOF
       return null;
     }
+
     if (isParen(char)) {
-      return {type: Token.PAREN, value: [this.scanner.getNext()]}
+      return new Token(Token.PAREN, [this.scanner.getNext()]);
     }
 
     if (isLetter(char)) {
@@ -174,12 +176,12 @@ var Tokenizer = (function () {
 
   Tokenizer.prototype.readName = function() {
     var value = this.readWhile(isAlphaNumeric);
-    return {type: Token.NAME, value: value};
+    return new Token(Token.NAME, value);
   };
 
   Tokenizer.prototype.readNumber = function() {
     var value = this.readWhile(isNumber);
-    return {type: Token.NUMBER, value: value};
+    return new Token(Token.NUMBER, value);
   };
 
   Tokenizer.prototype.peek = function() {
@@ -204,11 +206,11 @@ function tokenize(tokenizer) {
   var tokens = [];
   while(!tokenizer.isEof()) {
     var token = tokenizer.getNext();
-    console.log(token)
+    console.log(token.toString());
     tokens.push(token);
   }
 
-  console.log(tokens);
+  // console.log(tokens);
 }
 
 tokenize(new Tokenizer(new Scanner(new Source(source))));
